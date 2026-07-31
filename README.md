@@ -4,6 +4,16 @@
 >
 > This repository is a Minecraft **Forge** port of Not Enough Bandwidth by [USS_Shenzhou](https://github.com/USS-Shenzhou), ported by **nyamura**. The content below is the original author's README; its copyright and feature descriptions belong to the original author.Simultaneously comply with the original author's use of GPL3 license.
 
+## 本移植版相对原作的改动 | Changes in this Port
+
+nyamura(别名:O泡、OoOooo0518、melody_tik) 将此模组移植到 Forge 端时，对原作进行了以下调整：
+
+- **修复联机连接超时**：修正 zstd 流压缩中帧结束指令（`EndDirective`）的使用，确保每批聚合包独立成帧，解决客户端/服务端握手阶段的连接超时。
+- **网络层鲁棒化**：聚合封包在压缩失败时退化为不压缩（而非丢弃数据包），扩大异常捕获范围，并对 zstd 上下文配置增加空值保护，避免单点异常导致断线。
+- **移除与其他 mod 的 Mixin 冲突**：删除与 packetfixer 等 mod 争夺包大小常量的修改，避免 `@ModifyConstant` 冲突导致功能异常。
+- **修复连接初始化崩溃**：移除对 Forge 1.20.1 运行时不存在类的 Mixin 钩子，避免 `NoClassDefFoundError` 使连接建立失败。
+- **兼容增强**：对连接接管、区块追踪等关键 Mixin 增加异常回退，出错时自动退回原版行为，提升与其他 mod 的共存能力。
+
 ---
 
 # 网络包优化 | Not Enough Bandwidth (NEB)
