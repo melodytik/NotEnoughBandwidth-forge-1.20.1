@@ -1,8 +1,8 @@
 > **Forge 移植版 · Forge Port**
 >
-> 本仓库由 **nyamura** 将 [USS_Shenzhou](https://github.com/USS-Shenzhou) 原作的 Not Enough Bandwidth 移植到 **Minecraft Forge / NeoForge** 端。下方内容为原作者的原始 README，其版权与功能说明均归原作者所有。
+> 本仓库由 **nyamura** 将 [USS_Shenzhou](https://github.com/USS-Shenzhou) 原作的 Not Enough Bandwidth 移植到 Minecraft **Forge** 端。下方内容为原作者的原始 README，其版权与功能说明均归原作者所有。同时遵守原作者同样使用GPL3许可证。
 >
-> This repository is a **Minecraft Forge / NeoForge** port of Not Enough Bandwidth by [USS_Shenzhou](https://github.com/USS-Shenzhou), ported by **nyamura**. The content below is the original author's README; its copyright and feature descriptions belong to the original author.
+> This repository is a Minecraft **Forge** port of Not Enough Bandwidth by [USS_Shenzhou](https://github.com/USS-Shenzhou), ported by **nyamura**. The content below is the original author's README; its copyright and feature descriptions belong to the original author.Simultaneously comply with the original author's use of GPL3 license.
 
 ---
 
