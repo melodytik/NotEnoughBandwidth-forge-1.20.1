@@ -1,0 +1,197 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev.legacyforge'
+}
+
+version = mc_version + "-" + mod_version + "+" + mod_version_tag
+group = mod_group_id
+
+base {
+    archivesName = mod_name + "-" + mod_platform
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.deprecation = false
+    options.compilerArgs << "-Xmaxerrs" << "9999"
+}
+
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'})"
+
+// Force specific versions to avoid dynamic resolution that requires online metadata
+configurations.all {
+    resolutionStrategy {
+        force 'net.jodah:typetools:0.6.3'
+        force 'cpw.mods:modlauncher:10.0.9'
+        force 'cpw.mods:bootstraplauncher:1.1.2'
+        force 'net.minecraftforge:eventbus:6.0.5'
+        force 'net.minecraftforge:unsafe:0.2.0'
+        force 'net.minecraftforge:forgespi:7.0.1'
+        force 'net.minecraftforge:mergetool:1.1.5'
+        force 'net.minecraftforge:JarJarSelector:0.3.19'
+        force 'net.minecraftforge:JarJarMetadata:0.3.19'
+        force 'net.minecraftforge:JarJarFileSystems:0.3.19'
+        force 'net.minecraftforge:accesstransformers:8.0.4'
+        force "net.minecraftforge:fmlearlydisplay:${mc_version}-${forge_version}"
+        force "net.minecraftforge:javafmllanguage:${mc_version}-${forge_version}"
+        force "net.minecraftforge:mclanguage:${mc_version}-${forge_version}"
+        force 'org.spongepowered:mixin:0.8.5'
+        // 必须是 2.x：Forge/MC 1.20.1 运行时依赖 org.slf4j.spi.LoggingEventBuilder，
+        // 该类 1.8.x 没有。曾误 force 到 1.8.0-beta4，导致 ModLauncher 全部
+        // transformation service 以 NoClassDefFoundError 启动失败。
+        force 'org.slf4j:slf4j-api:2.0.1'
+    }
+}
+
+// ModDevGradle 在插件 apply 阶段就往 project 层注册了 maven.neoforged.net，
+// 这会整体压过 settings.gradle 里 dependencyResolutionManagement 的配置。
+// 而 Gradle 只在仓库返回 404 时才 fallback 到下一个仓库——遇到 connection reset
+// 这类网络异常会直接判定构建失败。所以离线镜像必须顶到第一位。
+// 另外 dependencyResolutionManagement 默认是 PREFER_PROJECT：只要 project 层存在
+// repositories（ModDevGradle 一定会加），settings.gradle 里那串镜像就整体失效。
+// 因此镜像必须在这里重新声明一遍，否则只剩本地镜像 + 插件自带的带 content filter 的仓库。
+repositories {
+    maven { name = 'AliyunPublic'; url = 'https://maven.aliyun.com/repository/public' }
+    maven { name = 'AliyunCentral'; url = 'https://maven.aliyun.com/repository/central' }
+    maven { name = 'AliyunReleases'; url = 'https://maven.aliyun.com/repository/releases' }
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net' }
+    maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+    maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.net/' }
+
+    def localMc = maven {
+        name = 'LocalMinecraftRepo'
+        url = file('local-mc-repo').toURI()
+    }
+    remove(localMc)
+    addFirst(localMc)
+}
+
+dependencies {
+    // Zstd native bindings, embedded into the mod jar via Forge JarJar
+    jarJar(implementation("com.github.luben:zstd-jni")) {
+        version {
+            strictly "[1.5.5,1.6)"
+            prefer "${zstd_version}"
+        }
+    }
+
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+    // ChunkMap.updateChunkTracking 的 MutableObject 参数类型来自 commons-lang3，
+    // 编译 mixin 时需要它在类路径上（运行时由 Minecraft 自带，compileOnly 不影响打包）。
+    compileOnly 'org.apache.commons:commons-lang3:3.17.0'
+
+    // Mixin annotation processor (generates the refmap)
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+Map<String, String> commonSystemProperties = [
+        'forge.logging.console.level': 'debug',
+        'mixin.debug.export'         : 'true',
+        'mixin.config'               : "${mod_id}.mixins.json"
+]
+
+legacyForge {
+    version = "${mc_version}-${forge_version}"
+
+    parchment {
+        minecraftVersion = "${mc_version}"
+        mappingsVersion = "${mapping_version}"
+    }
+
+    // Access transformers would be written in Mojang (official) names here; the plugin
+    // remaps them to SRG automatically. Re-enable once the AT file has real entries.
+    // validateAccessTransformers = true
+    // accessTransformers = ["src/main/resources/META-INF/accesstransformer.cfg"]
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        configureEach {
+            gameDirectory = project.file('run')
+            systemProperties.putAll(commonSystemProperties)
+            jvmArguments.addAll(
+                    "--add-opens", "java.base/sun.security.util=ALL-UNNAMED",
+                    "--add-opens", "java.base/java.util.jar=ALL-UNNAMED"
+            )
+        }
+        client {
+            client()
+            // 联调用：./gradlew runClient -PnebQuickJoin=localhost:25565
+            // 直接跳过主菜单加入指定服务器，方便验证握手 / 聚合链路。
+            if (project.hasProperty('nebQuickJoin')) {
+                programArguments.addAll('--quickPlayMultiplayer', project.property('nebQuickJoin').toString())
+            }
+        }
+        server {
+            server()
+            programArguments.addAll('--nogui')
+        }
+    }
+}
+
+// 开发环境下 JarJar 不生效（跑的是 build/classes 而不是打好的 jar），
+// 而 ModDevGradle 的 legacy 启动类路径只含 Minecraft + Forge，不含 mod 的额外运行时依赖。
+// 所以必须显式挂到 additionalRuntimeClasspath，否则 runClient/runServer 会在第一次
+// 压缩时 NoClassDefFoundError: com/github/luben/zstd/ZstdCompressCtx。
+// 注意：该配置由 legacyForge{} 块求值时才创建，因此这个 dependencies 块必须写在它<b>之后</b>。
+dependencies {
+    additionalRuntimeClasspath "com.github.luben:zstd-jni:${zstd_version}"
+}
+
+///////////
+// Mixins
+mixin {
+    var refmap = add sourceSets.main, "${mod_id}.refmap.json"
+    jar.from refmap
+    config "${mod_id}.mixins.json"
+}
+
+jar {
+    manifest {
+        attributes([
+                "MixinConfigs": "${mod_id}.mixins.json"
+        ])
+    }
+}
+
+//////////////
+// Resources
+Map<String, String> expansionVariables = [
+        'minecraft_version'   : project.mc_version,
+        'mc_range'            : project.mc_range,
+        'forge_version'       : project.forge_version,
+        'forge_version_range' : project.forge_version_range,
+        'loader_version_range': project.loader_version_range,
+        'mod_id'              : mod_id,
+        'mod_name'            : mod_name,
+        'mod_license'         : mod_license,
+        'mod_version'         : mod_version,
+        'issue_tracker'       : issue_tracker,
+        'mod_authors'         : mod_authors,
+        'mod_description'     : mod_description
+]
+
+processResources {
+    exclude '.cache'
+    for (var entry : expansionVariables.entrySet()) {
+        inputs.property(entry.key, entry.value)
+    }
+    filesMatching("META-INF/mods.toml") {
+        expand expansionVariables
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

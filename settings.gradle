@@ -1,0 +1,38 @@
+pluginManagement {
+    repositories {
+        // Aliyun Maven mirrors (primary, faster in CN)
+        maven { url = "https://maven.aliyun.com/repository/public" }
+        maven { url = "https://maven.aliyun.com/repository/central" }
+        maven { url = "https://maven.aliyun.com/repository/gradle-plugin" }
+        maven { url = "https://maven.aliyun.com/repository/releases" }
+        // NeoForged / Forge official repos (for plugins)
+        maven { url = "https://maven.neoforged.net/releases" }
+        maven { url = "https://maven.minecraftforge.net" }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'net.neoforged.moddev.legacyforge' version '2.0.131'
+        id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention'
+}
+
+dependencyResolutionManagement {
+    repositories {
+        // Pre-downloaded Forge/NeoForged deps, keeps offline builds working
+        maven { url = new File(settings.rootDir, 'local-mc-repo').toURI().toString() }
+        maven { url = "https://maven.aliyun.com/repository/public" }
+        maven { url = "https://maven.aliyun.com/repository/central" }
+        maven { url = "https://maven.aliyun.com/repository/releases" }
+        mavenCentral()
+        maven { url = "https://maven.neoforged.net/releases" }
+        maven { url = "https://maven.minecraftforge.net" }
+        maven { url = "https://maven.parchmentmc.net/" }
+    }
+}
+
+rootProject.name = 'NotEnoughBandwidth'
